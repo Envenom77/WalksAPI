@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Walks.API.Data;
 using Walks.API.Models.Domain;
 using Walks.API.Models.DTO;
+using Walks.API.Repositories;
 
 namespace Walks.API.Controllers
 {
@@ -11,16 +13,18 @@ namespace Walks.API.Controllers
     public class RegionsController : ControllerBase
     {
         private readonly WalksDBContext _dbContext;
+        private readonly IRegionRepository regionRepository;
 
-        public RegionsController(WalksDBContext walksDBContext)
+        public RegionsController(WalksDBContext walksDBContext, IRegionRepository regionRepository)
         {
             _dbContext = walksDBContext;
+            this.regionRepository = regionRepository;
         }
 
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var regions = _dbContext.Regions;
+            var regions = await regionRepository.GetAllAsync();
 
             var regionsDTO = new List<RegionDTO>();
             foreach (var region in regions)
@@ -39,9 +43,9 @@ namespace Walks.API.Controllers
 
         [HttpGet]
         [Route("{id:Guid}")]
-        public IActionResult GetRegionById([FromRoute] Guid id)
+        public async Task<IActionResult> GetRegionById([FromRoute] Guid id)
         {
-            var region = _dbContext.Regions.FirstOrDefault(r => r.Id == id);
+            var region = await regionRepository.GetRegionByIdAsync(id);
 
             if (region == null)
             {
@@ -60,7 +64,7 @@ namespace Walks.API.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create([FromBody] CreateRegionDTO createRegionDTO)
+        public async Task<IActionResult> Create([FromBody] CreateRegionDTO createRegionDTO)
         {
             var createRegion = new Region
             {
@@ -69,8 +73,7 @@ namespace Walks.API.Controllers
                 Name = createRegionDTO.Name,
             };
 
-            _dbContext.Regions.Add(createRegion);
-            _dbContext.SaveChanges();
+            createRegion = await regionRepository.CreateAsync(createRegion);
 
             var regionDTO = new RegionDTO
             {
@@ -87,21 +90,21 @@ namespace Walks.API.Controllers
 
         [HttpPut]
         [Route("{id:Guid}")]
-        public IActionResult Update([FromRoute] Guid id, [FromBody] UpdateRegionDTO updateRegionDTO)
+        public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateRegionDTO updateRegionDTO)
         {
+            var region = new Region
+            {
+                Name = updateRegionDTO.Name,
+                Code = updateRegionDTO.Code,
+                RegionImageUrl = updateRegionDTO.RegionImageUrl
+            };
 
-            var region = _dbContext.Regions.FirstOrDefault(r => r.Id == id);
+            region = await regionRepository.UpdateAsync(id, region);
 
             if (region == null)
             {
                 return NotFound();
             }
-
-            region.Name = updateRegionDTO.Name;
-            region.Code = updateRegionDTO.Code;
-            region.RegionImageUrl = updateRegionDTO.RegionImageUrl;
-
-            _dbContext.SaveChanges();
 
             var regionDTO = new RegionDTO
             {
@@ -116,17 +119,14 @@ namespace Walks.API.Controllers
 
         [HttpDelete]
         [Route("{id:Guid}")]
-        public IActionResult Delete([FromRoute] Guid id)
+        public async Task<IActionResult> Delete([FromRoute] Guid id)
         {
-            var region = _dbContext.Regions.FirstOrDefault(r => r.Id == id);
+            var region = await regionRepository.DeleteAsync(id);
 
             if (region == null)
             {
                 return NotFound();
             }
-
-            _dbContext.Regions.Remove(region);
-            _dbContext.SaveChanges();
 
             return Ok();
         }
